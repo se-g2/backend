@@ -1,0 +1,1053 @@
+swagger: "2.0"
+info:
+  description: "拼车系统 - API端点列举（初稿）\n
+  所有的 CORS 和 OPTIONS 都会放行（方便 RESTful API） \n
+  前端可以使用 axios ，后端所有的返回结果请参照 ApiResponse （HTTP Code 都是 200 ，结构体内部的 code 是真正的状态，ok 表示是否执行成功，message 表示返回信息，data 里面是返回的 Object ）"
+  version: "0.0.1"
+  title: "拼车系统 - API端点"
+host: "backend.project"
+basePath: "/api"
+tags:
+  - name: "auth"
+    description: "认证"
+  - name: "user"
+    description: "同济大学教职工"
+  - name: "driver"
+    description: "同济大学司机"
+  - name: "admin"
+    description: "平台管理员"
+schemes:
+  - "https"
+  - "http"
+paths:
+  /auth/tele/request:
+    post:
+      tags:
+        - "auth"
+      summary: "发送短信"
+      description: "手机号登录验证 - 发送短信"
+      operationId: "userAuthenticateWithTele"
+      produces:
+        - "application/json"
+      parameters:
+        - name: "number"
+          in: "body"
+          schema:
+            type: "object"
+            required:
+              - "number"
+            properties:
+              number:
+                type: "string"
+                description: "用户的手机号码"
+      responses:
+        "200":
+          description: "短信验证码发送成功"
+          schema:
+            type: "object"
+            properties:
+              session:
+                type: "string"
+                description: "短信 session"
+              timeout:
+                type: "string"
+                format: "date-time"
+                description: "短信验证码过期时间"
+        "429":
+          description: "短信发送频率超出限制"
+  /auth/tele/code:
+    post:
+      tags:
+        - "auth"
+      summary: "确认短信代码"
+      description: "手机号登录验证 - 确认代码"
+      operationId: "userAuthenticateWithTeleConfirmCode"
+      produces:
+        - "application/json"
+      parameters:
+        - name: "code"
+          in: "body"
+          schema:
+            type: "object"
+            required:
+              - "number"
+              - "session"
+              - "code"
+            properties:
+              number:
+                type: "string"
+                description: "用户的手机号码"
+              session:
+                type: "string"
+                description: "上一步请求中获得的短信 session"
+              code:
+                type: "string"
+                description: "用户收到的短信验证码"
+
+      responses:
+        "200":
+          description: "用户登录成功"
+          schema:
+            type: "object"
+            properties:
+              code:
+                type: "string"
+                description: "用户 token"
+        "401":
+          description: "短信验证码错误"
+        "403":
+          description: "短信验证码超时失效"
+  /verify:
+    post:
+      tags:
+        - "auth"
+      summary: "用户身份认证"
+      description: "用户通过学工号和姓名认证身份"
+      operationId: "userVerify"
+      produces:
+        - "application/json"
+      parameters:
+        - name: "user"
+          in: "body"
+          schema:
+            type: "object"
+            required:
+              - "number"
+              - "session"
+              - "code"
+            properties:
+              userno:
+                type: "string"
+                description: "用户学工号"
+              name:
+                type: "string"
+                description: "用户姓名"
+      responses:
+        "200":
+          description: "用户认证成功"
+        "401":
+          description: "学工号或姓名错误"
+        "404":
+          description: "找不到对应的学工号"
+
+  /announcements:
+    get:
+      tags:
+        - "user"
+      summary: "获取公告"
+      description: "获得所有公告，由客户端进行分类"
+      operationId: "getAnnouncements"
+      produces:
+        - "application/json"
+      responses:
+        "200":
+          description: "获得成功"
+          schema:
+            type: "array"
+            items:
+              $ref: "#/definitions/Accouncement"
+        "401":
+          description: "无效的 token"
+      security:
+        - APIKey: []
+
+  /user/info:
+    get:
+      tags:
+        - "user"
+      summary: "获取用户信息"
+      description: ""
+      operationId: "getUserInfo"
+      produces:
+        - "application/json"
+      responses:
+        "200":
+          description: "获取成功"
+          schema:
+            $ref: "#/definitions/User"
+        "401":
+          description: "无效的 token"
+      security:
+        - APIKey: []
+
+  /user/profile/modify:
+    put:
+      tags:
+        - "user"
+      summary: "更新用户信息"
+      description: "只更新 Profile ，其他内容由系统维护"
+      operationId: "updateUserProfile"
+      produces:
+        - "application/json"
+      parameters:
+        - in: "body"
+          name: "body"
+          description: "新的用户信息"
+          required: true
+          schema:
+            $ref: "#/definitions/UserProfile"
+      responses:
+        "200":
+          description: "更新成功"
+        "401":
+          description: "无效的 token"
+      security:
+        - APIKey: []
+
+  /user/delete:
+    delete:
+      tags:
+        - "user"
+      summary: "删除用户"
+      description: ""
+      operationId: "deleteUser"
+      produces:
+        - "application/json"
+      responses:
+        "200":
+          description: "删除成功"
+        "401":
+          description: "无效的 token"
+      security:
+        - APIKey: []
+
+  /order/list/{identity}:
+    get:
+      tags:
+        - "user"
+      summary: "获得订单记录"
+      description: ""
+      operationId: "listOrders"
+      produces:
+        - "application/json"
+      parameters:
+        - name: "identity"
+          in: "path"
+          description: "订单分类（乘客还是司机）"
+          required: true
+          type: "string"
+          enum:
+            - "passenger"
+            - "driver"
+      responses:
+        "200":
+          description: "获得成功"
+          schema:
+            type: "array"
+            items:
+              $ref: "#/definitions/Order"
+        "401":
+          description: "无效的 token"
+        "403":
+          description: "非司机认证的用户请求司机接口"
+      security:
+        - APIKey: []
+
+  /odrer/search:
+    get:
+      tags:
+        - "user"
+      summary: "搜索订单"
+      description: "支持按起始地点，目标地点，出发时间段，拼车人数，车型等信息进行搜索"
+      produces:
+        - "application/json"
+      parameters:
+        - name: "departure"
+          in: "query"
+          type: "string"
+        - name: "arrival"
+          in: "query"
+          type: "string"
+        - name: "time"
+          in: "query"
+          type: "string"
+          format: "date-time"
+        - name: "passenger"
+          in: "query"
+          type: "integer"
+        - name: "vehicleSize"
+          in: "query"
+          type: "string"
+          enum:
+            - "small"
+            - "medium"
+            - "large"
+            - "bus"
+        - name: "driver"
+          in: "query"
+          type: "string"
+      responses:
+        "200":
+          description: "获得成功"
+          schema:
+            type: "array"
+            items:
+              $ref: "#/definitions/Order"
+        "401":
+          description: "无效的 token"
+      security:
+        - APIKey: []
+
+  /order/{id}/info:
+    get:
+      tags:
+        - "user"
+      summary: "查看订单详细信息"
+      produces:
+        - "application/json"
+      parameters:
+        - name: "id"
+          in: "path"
+          type: "integer"
+          description: "订单号"
+          required: true
+      responses:
+        "200":
+          description: "获得成功"
+          schema:
+            $ref: "#/definitions/Order"
+        "401":
+          description: "无效的 token"
+      security:
+        - APIKey: []
+
+  /order/new:
+    post:
+      tags:
+        - "user"
+      summary: "新建订单"
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      parameters:
+        - in: "body"
+          name: "order"
+          description: "新的订单信息"
+          required: true
+          schema:
+            $ref: "#/definitions/Order"
+      responses:
+        "200":
+          description: "创建成功"
+          schema:
+            type: "object"
+            properties:
+              id:
+                type: "integer"
+                description: "订单号"
+        "401":
+          description: "无效的 token"
+      security:
+        - APIKey: []
+
+  /order/{id}/join:
+    post:
+      tags:
+        - "user"
+      summary: "（用户）加入拼车订单"
+      produces:
+        - "application/json"
+      parameters:
+        - name: "id"
+          in: "path"
+          type: "integer"
+          description: "订单号"
+          required: true
+      responses:
+        "200":
+          description: "加入成功"
+        "401":
+          description: "无效的 token"
+        "404":
+          description: "订单已完成或不存在"
+      security:
+        - APIKey: []
+
+  /order/{id}/cancel:
+    delete:
+      tags:
+        - "user"
+      summary: "取消拼车订单"
+      produces:
+        - "application/json"
+      parameters:
+        - name: "id"
+          in: "path"
+          type: "integer"
+          description: "订单号"
+          required: true
+      responses:
+        "200":
+          description: "取消成功"
+        "401":
+          description: "无效的 token"
+        "403":
+          description: "订单已经无法取消（如已经开车或订单结束）"
+        "404":
+          description: "订单不存在"
+      security:
+        - APIKey: []
+
+  /order/{id}/accept:
+    post:
+      tags:
+        - "driver"
+      summary: "（司机）接受订单"
+      produces:
+        - "application/json"
+      parameters:
+        - name: "id"
+          in: "path"
+          type: "integer"
+          description: "订单号"
+          required: true
+        - name: "vehicle"
+          in: "body"
+          required: true
+          schema:
+            type: "object"
+            required:
+              - "vehicle"
+            properties:
+              vehicle:
+                type: "integer"
+                description: "（司机名下的）车辆 ID"
+      responses:
+        "200":
+          description: "接受成功"
+        "401":
+          description: "无效的 token"
+        "403":
+          description: "订单无法接受（如已被别人抢走）"
+        "404":
+          description: "订单不存在"
+      security:
+        - APIKey: []
+
+  /order/{id}/finish:
+    post:
+      tags:
+        - "driver"
+      summary: "（司机）确认订单完成"
+      produces:
+        - "application/json"
+      parameters:
+        - name: "id"
+          in: "path"
+          type: "integer"
+          description: "订单号"
+          required: true
+      responses:
+        "200":
+          description: "确认成功"
+        "401":
+          description: "无效的 token"
+        "403":
+          description: "订单无法完成（如距离目的地太远）"
+        "404":
+          description: "订单不存在"
+      security:
+        - APIKey: []
+
+  /order/{id}/rating:
+    post:
+      tags:
+        - "user"
+      summary: "订单评分"
+      produces:
+        - "application/json"
+      parameters:
+        - name: "id"
+          in: "path"
+          type: "integer"
+          description: "订单号"
+          required: true
+        - name: "rating"
+          in: "body"
+          required: true
+          schema:
+            type: "object"
+            required:
+              - "rating"
+            properties:
+              rating:
+                type: "integer"
+                description: "评分（-1 / 0 +1）"
+      responses:
+        "200":
+          description: "确认成功"
+        "401":
+          description: "无效的 token"
+        "403":
+          description: "订单无法评分（用户与订单无关）"
+        "404":
+          description: "订单不存在"
+      security:
+        - APIKey: []
+
+  /order/{id}/feedback:
+    post:
+      tags:
+        - "user"
+      summary: "订单反馈"
+      produces:
+        - "application/json"
+      parameters:
+        - name: "id"
+          in: "path"
+          type: "integer"
+          description: "订单号"
+          required: true
+        - name: "comment"
+          in: "body"
+          required: true
+          schema:
+            type: "object"
+            required:
+              - "comment"
+            properties:
+              comment:
+                type: "string"
+                description: "问题反馈"
+      responses:
+        "200":
+          description: "确认成功"
+        "401":
+          description: "无效的 token"
+        "403":
+          description: "订单无法反馈（用户与订单无关）"
+        "404":
+          description: "订单不存在"
+      security:
+        - APIKey: []
+
+  /admin/new:
+    post:
+      tags:
+        - "admin"
+      summary: "新增管理员"
+      produces:
+        - "application/json"
+      parameters:
+        - name: "adminId"
+          in: "body"
+          required: true
+          schema:
+            type: "object"
+            required:
+              - "id"
+            properties:
+              id:
+                type: "integer"
+                description: "新任管理员 ID"
+      responses:
+        "200":
+          description: "新增成功"
+        "401":
+          description: "无效的 token"
+        "403":
+          description: "请求者不是管理员"
+        "404":
+          description: "用户不存在"
+      security:
+        - APIKey: []
+
+  /admin/user/new:
+    post:
+      tags:
+        - "admin"
+      summary: "新增用户"
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      parameters:
+        - in: "body"
+          name: "body"
+          description: "新的用户信息"
+          required: true
+          schema:
+            $ref: "#/definitions/User"
+      responses:
+        "200":
+          description: "新增成功"
+        "401":
+          description: "无效的 token"
+        "403":
+          description: "请求者不是管理员"
+      security:
+        - APIKey: []
+
+  /admin/user/{id}/modify:
+    put:
+      tags:
+        - "admin"
+      summary: "修改用户"
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      parameters:
+        - in: "path"
+          name: "id"
+          description: "用户 ID"
+          required: true
+          type: "integer"
+        - in: "body"
+          name: "body"
+          description: "新的用户信息"
+          required: true
+          schema:
+            $ref: "#/definitions/User"
+      responses:
+        "200":
+          description: "新增成功"
+        "401":
+          description: "无效的 token"
+        "403":
+          description: "请求者不是管理员"
+        "404":
+          description: "用户不存在"
+      security:
+        - APIKey: []
+
+  /admin/user/{id}/delete:
+    delete:
+      tags:
+        - "admin"
+      summary: "删除用户"
+      produces:
+        - "application/json"
+      parameters:
+        - in: "path"
+          name: "id"
+          description: "用户 ID"
+          required: true
+          type: "integer"
+      responses:
+        "200":
+          description: "删除成功"
+        "401":
+          description: "无效的 token"
+        "403":
+          description: "请求者不是管理员"
+        "404":
+          description: "用户不存在"
+      security:
+        - APIKey: []
+
+  /admin/vehicle/new:
+    post:
+      tags:
+        - "admin"
+      summary: "新增载具"
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      parameters:
+        - in: "body"
+          name: "body"
+          description: "新的载具信息"
+          required: true
+          schema:
+            $ref: "#/definitions/VehicleInfo"
+      responses:
+        "200":
+          description: "新增成功"
+        "401":
+          description: "无效的 token"
+        "403":
+          description: "请求者不是管理员"
+      security:
+        - APIKey: []
+
+  /admin/vehicle/{id}/modify:
+    put:
+      tags:
+        - "admin"
+      summary: "修改载具"
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      parameters:
+        - in: "path"
+          name: "id"
+          description: "载具 ID"
+          required: true
+          type: "integer"
+        - in: "body"
+          name: "body"
+          description: "新的载具信息"
+          required: true
+          schema:
+            $ref: "#/definitions/VehicleInfo"
+      responses:
+        "200":
+          description: "新增成功"
+        "401":
+          description: "无效的 token"
+        "403":
+          description: "请求者不是管理员"
+        "404":
+          description: "载具不存在"
+      security:
+        - APIKey: []
+
+  /admin/vehicle/{id}/delete:
+    delete:
+      tags:
+        - "admin"
+      summary: "删除载具"
+      produces:
+        - "application/json"
+      parameters:
+        - in: "path"
+          name: "id"
+          description: "载具 ID"
+          required: true
+          type: "integer"
+      responses:
+        "200":
+          description: "删除成功"
+        "401":
+          description: "无效的 token"
+        "403":
+          description: "请求者不是管理员"
+        "404":
+          description: "载具不存在"
+      security:
+        - APIKey: []
+
+  /admin/order/{id}/finish:
+    post:
+      tags:
+        - "admin"
+      summary: "标记订单完成"
+      produces:
+        - "application/json"
+      parameters:
+        - in: "path"
+          name: "id"
+          description: "订单 ID"
+          required: true
+          type: "integer"
+      responses:
+        "200":
+          description: "完成成功"
+        "401":
+          description: "无效的 token"
+        "403":
+          description: "请求者不是管理员"
+        "404":
+          description: "订单不存在"
+      security:
+        - APIKey: []
+
+  /admin/order/{id}/cancel:
+    delete:
+      tags:
+        - "admin"
+      summary: "取消订单"
+      produces:
+        - "application/json"
+      parameters:
+        - in: "path"
+          name: "id"
+          description: "订单 ID"
+          required: true
+          type: "integer"
+      responses:
+        "200":
+          description: "取消成功"
+        "401":
+          description: "无效的 token"
+        "403":
+          description: "请求者不是管理员"
+        "404":
+          description: "订单不存在"
+      security:
+        - APIKey: []
+
+  /admin/order/{id}/feedback:
+    get:
+      tags:
+        - "admin"
+      summary: "读取关于订单的反馈"
+      produces:
+        - "application/json"
+      parameters:
+        - in: "path"
+          name: "id"
+          description: "订单 ID"
+          required: true
+          type: "integer"
+      responses:
+        "200":
+          description: "反馈拉取成功"
+          schema:
+            type: "object"
+            properties:
+              comment:
+                type: "string"
+                description: "反馈信息"
+        "401":
+          description: "无效的 token"
+        "403":
+          description: "请求者不是管理员"
+        "404":
+          description: "订单不存在"
+
+  /admin/order/{id}/reply:
+    post:
+      tags:
+        - "admin"
+      summary: "回复针对订单的反馈"
+      produces:
+        - "application/json"
+      parameters:
+        - in: "path"
+          name: "id"
+          description: "订单 ID"
+          required: true
+          type: "integer"
+        - name: "comment"
+          in: "body"
+          required: true
+          schema:
+            type: "object"
+            required:
+              - "comment"
+            properties:
+              comment:
+                type: "string"
+                description: "问题反馈"
+      responses:
+        "200":
+          description: "回复成功"
+        "401":
+          description: "无效的 token"
+        "403":
+          description: "请求者不是管理员"
+        "404":
+          description: "订单不存在"
+      security:
+        - APIKey: []
+
+
+securityDefinitions:
+  APIKey:
+    type: "apiKey"
+    name: "X-Token"
+    in: "header"
+
+definitions:
+  Accouncement:
+    type: "object"
+    properties:
+      id:
+        type: "integer"
+        format: "int64"
+        description: "公告编号"
+      title:
+        type: "string"
+        description: "标题"
+      publish:
+        type: "string"
+        format: "date-time"
+        description: "发布时间"
+      update:
+        type: "string"
+        format: "date-time"
+        description: "更新时间"
+      category:
+        type: "string"
+        description: "分类"
+      content:
+        type: "string"
+        description: "内容"
+
+  Order:
+    type: "object"
+    properties:
+      id:
+        type: "integer"
+        format: "int64"
+        description: "订单编号"
+      createTime:
+        type: "string"
+        format: "date-time"
+        description: "创建时间"
+      creator:
+        type: "integer"
+        description: "创建者（ID）"
+      departure:
+        type: "string"
+        description: "出发地"
+      arrival:
+        type: "string"
+        description: "目的地"
+      startTime:
+        type: "string"
+        format: "date-time"
+        description: "出发时间"
+      endTime:
+        type: "string"
+        format: "date-time"
+        description: "到达时间"
+      distance:
+        type: "integer"
+        description: "行驶路程"
+      price:
+        type: "integer"
+        description: "价格（平摊给每一位参与拼车者）"
+      bookingPassenger:
+        type: "array"
+        items:
+          $ref: "#/definitions/User"
+        description: "参与乘客"
+      targetPassenger:
+        type: "integer"
+        format: "uint64"
+        description: "目标人数"
+      vehicle:
+        $ref: "#/definitions/VehicleInfo"
+      driver:
+        $ref: "#/definitions/DriverProfile"
+      status:
+        type: "string"
+        description: "状态"
+        enum:
+          - "cancelled"
+          - "waiting"
+          - "started"
+          - "done"
+      complete:
+        type: "boolean"
+        description: "是否完成"
+        default: false
+
+  UserProfile:
+    type: "object"
+    properties:
+      avatar:
+        type: "string"
+        description: "头像（图片URL）"
+      bio:
+        type: "string"
+        description: "自我介绍"
+
+  DriverProfile:
+    type: "object"
+    properties:
+      identityCode:
+        type: "string"
+        description: "身份证号"
+      driverLicense:
+        type: "string"
+        description: "驾驶证（图片URL）"
+      vehicles:
+        type: "array"
+        items:
+          $ref: "#/definitions/VehicleInfo"
+      availableTime:
+        type: "string"
+        description: "可服务时间段"
+
+  VehicleInfo:
+    type: "object"
+    properties:
+      id:
+        type: "integer"
+        format: "int64"
+        description: "车辆编号"
+      brand:
+        type: "string"
+        description: "品牌"
+      size:
+        type: "string"
+        description: "大小"
+        enum:
+          - "small"
+          - "medium"
+          - "large"
+          - "bus"
+      color:
+        type: "string"
+      capacity:
+        type: "integer"
+        description: "载客数量"
+      license:
+        type: "string"
+        description: "行驶证（图片URL）"
+
+
+  User:
+    type: "object"
+    properties:
+      id:
+        type: "integer"
+        format: "int64"
+        description: "用户编号"
+      profile:
+        $ref: "#/definitions/UserProfile"
+      schoolId:
+        type: "string"
+        description: "学工号"
+      name:
+        type: "string"
+        description: "姓名"
+      tele:
+        type: "string"
+        description: "注册电话"
+      score:
+        type: "number"
+        description: "信用点"
+      finishOrders:
+        type: "integer"
+        description: "完成订单数"
+      like:
+        type: "integer"
+        description: "好评数"
+      money:
+        type: "integer"
+        description: "金额"
+      isDriver:
+        type: "boolean"
+        description: "是否为司机帐号"
+        default: false
+      driverProfile?:
+        $ref: "#/definitions/DriverProfile"
+      isAdmin:
+        type: "boolean"
+        description: "是否为管理员"
+        default: false
+
+  UserWithPass:
+    type: "object"
+    description: "用于数据库存储"
+    properties:
+      profile:
+        $ref: "#/definitions/User"
+      passSalt:
+        type: "string"
+        description: "密码盐"
+      passKey:
+        type: "string"
+        description: "密码"
+
+  ApiResponse:
+    type: "object"
+    description: "所有的后端请求返回都会用这个包裹"
+    properties:
+      code:
+        type: "integer"
+        format: "int32"
+      ok:
+        type: "boolean"
+      message:
+        type: "string"
+      data?:
+        type: "object"

@@ -1,0 +1,25 @@
+version: '3'
+services:
+  db:
+    restart: always
+    image: postgres:13-alpine
+    container_name: backend_db
+    ports:
+      - 127.0.0.1:5432:5432
+    environment:
+      POSTGRES_USER: softengeneer
+      POSTGRES_PASSWORD: awesome_password
+      POSTGRES_DB: backend
+      POSTGRES_INITDB_ARGS: "--encoding='UTF8' --lc-collate='C' --lc-ctype='C'"
+    volumes:
+      - ./db:/var/lib/postgresql/data
+
+  redis:
+    restart: always
+    image: redis:latest
+    container_name: backend_redis
+    ports:
+      - 127.0.0.1:6379:6379
+    volumes:
+      - ./redis:/data
+

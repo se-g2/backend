@@ -1,0 +1,14 @@
+debug: true
+db:
+  type: postgres
+  host: localhost
+  port: 5432
+  user: softengeneer
+  password: awesome_password
+  dbname: backend
+  sslmode: disable
+  time_zone: Asia/Shanghai
+redis:
+  addr: localhost:6379
+  password: ""
+  db: 0
